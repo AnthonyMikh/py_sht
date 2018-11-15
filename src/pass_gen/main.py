@@ -1,5 +1,6 @@
-import argparse as arp
+import argparse
 from random import choice
+import sys
 
 ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ALPHABET_LO = "abcdefghijklmnopqrstuvwxyz"
@@ -29,5 +30,38 @@ def gen_pass(length: int, *, symbols: bool = True, digits: bool = True) -> str:
     additional = "".join(choice(charset) for _ in range(length - base))
     return "".join(required) + additional
 
+def make_parser() -> 'argparse.ArgumentParser':
+    p = argparse.ArgumentParser(\
+            description="Simple password utility."\
+            " Generated passwords may include latin characters of both case,"\
+            f" special characters (\"{SYMBOLS}\") and digits")
+    p.add_argument('-l', '--length',
+        help = "Specify the length of desired password",
+        metavar = "length",
+        dest = 'length',
+        type = int,
+        action = 'store',
+        default = 8)
+    p.add_argument('--skip-symbols',
+        help = "Do not use special characters for generating password",
+        action = 'store_true',
+        dest = 'skip_symbols')
+    p.add_argument('--skip-digits',
+        help = "Do not use digits for generating password",
+        action = 'store_true',
+        dest = 'skip_digits')
+    return p
+
 if __name__ == "__main__":
-    print(gen_pass(8))
+    parser = make_parser()
+    args = parser.parse_args()
+    
+    try:
+        password = gen_pass(args.length,
+                 symbols = not args.skip_symbols,
+                 digits = not args.skip_digits)
+    except ValueError as err:
+        print(err, file = sys.stderr)
+        sys.exit()
+    
+    print(password)
