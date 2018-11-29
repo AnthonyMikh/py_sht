@@ -132,12 +132,12 @@ def input_turn(promt: str, int_err: str, bound_err: str) -> int:
         try:
             cell = int(input(promt))
         except:
-            print(int_err)
+            print(int_err, end = "")
             continue
         try:
             coord = numpad_to_coord[cell]
         except:
-            print(bound_err)
+            print(bound_err, end = "")
             continue
         return coord
 
@@ -154,7 +154,7 @@ def unwrap_or_else(x, f):
 class Player(Turner):
     PROMT = "Enter number of cell to make turn: "
     INT_ERR = "You input was not number"
-    BOUND_ERR = "Your input was out of border of field"
+    BOUND_ERR = "Your input was out of border of board"
     OCCUPIED_ERR = "This cell is already occupied"
     
     def __init__(self, *,
@@ -171,7 +171,7 @@ class Player(Turner):
         while True:
             coord = input_turn(Player.PROMT, Player.INT_ERR, Player.BOUND_ERR)
             if board[coord] is not Figure.EMPTY:
-                print(self.occupied_err)
+                print(self.occupied_err, end = "")
             else:
                 return coord
 
@@ -188,7 +188,9 @@ class Game:
         self.current = 0 if player0_is_first else 1
     
     def draw_board(self):
-        print(self.board)
+        print()
+        print(self.board, end = "")
+        print()
     
     def advance(self, draw_board: bool) -> bool:
         current = self.current
