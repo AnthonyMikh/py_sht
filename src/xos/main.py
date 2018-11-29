@@ -11,7 +11,6 @@ class Mark(Enum):
     X = 1
     O = 2
     
-    
     def opposite(self) -> 'Mark':
         return {
          Mark.EMPTY: Mark.EMPTY,
@@ -63,24 +62,25 @@ numpad = [
     1, 2, 3,
 ]
 
-class Field():
+class Board():
     def __init__(self):
-        self.field = [Mark.EMPTY] * 9
+        self.board = [Mark.EMPTY] * 9
     
     @classmethod
-    def from_raw_field(cls, field: list) -> 'Field':
-        field_ = cls()
-        field_.field = field
-        return field_
+    def from_raw_board(cls, board: list) -> 'Board':
+        assert(len(board) == 9)
+        board_ = cls()
+        board_.board = board
+        return board_
     
-    def to_field_repr(self, own: 'Mark') -> 'FieldRepr':
-        field = [Figure.from_mark(m, own) for m in self.field]
-        return FieldRepr.from_raw_field(field)
+    def to_board_repr(self, own: 'Mark') -> 'BoardRepr':
+        board = [Figure.from_mark(m, own) for m in self.board]
+        return BoardRepr.from_raw_board(board)
     
     def __str__(self):
         indexed = list(map(
             lambda fig_i: str(occupied_or(fig_i[0], fig_i[1])),
-            zip(self.field, numpad)))
+            zip(self.board, numpad)))
         
         return "\n-----\n".join([
             "|".join(indexed[0:3]),
@@ -89,36 +89,37 @@ class Field():
         ])
     
     def __getitem__(self, index: int) -> Mark:
-        return self.field[index]
+        return self.board[index]
     
     def __setitem__(self, index: int, mark: Mark):
-        self.field[index] = mark
+        self.board[index] = mark
             
 
-class FieldRepr():
+class BoardRepr():
     def __init__(self):
-        self.field = [Figure.EMPTY] * 9
+        self.board = [Figure.EMPTY] * 9
     
     @classmethod
-    def from_raw_field(cls, field: list) -> 'FieldRepr':
-        field_repr = cls()
-        field_repr.field = field
-        return field_repr
+    def from_raw_board(cls, board: list) -> 'BoardRepr':
+        assert(len(board) == 9)
+        board_repr = cls()
+        board_repr.board = board
+        return board_repr
     
     def __getitem__(self, index: int) -> Figure:
-        return self.field[index]
+        return self.board[index]
     
     def __setitem__(self, index: int, fig: Figure):
-        self.field[index] = fig
+        self.board[index] = fig
 
 class Turner(ABC):
     @abstractmethod
-    def choose_turn(self, field: FieldRepr) -> int:
+    def choose_turn(self, board: BoardRepr) -> int:
         pass
 
 class Crazy(Turner):
-    def choose_turn(self, field: FieldRepr) -> int:
-        return random.choice([i for (i, fig) in enumerate(field) if fig is Figure.EMPTY])
+    def choose_turn(self, board: BoardRepr) -> int:
+        return random.choice([i for (i, fig) in enumerate(board) if fig is Figure.EMPTY])
 
 numpad_to_coord = {
     7: 0, 8: 1, 9: 2,
@@ -166,10 +167,10 @@ class Player(Turner):
         self.bound_err    = unwrap_or(bound_err,    Player.BOUND_ERR)
         self.occupied_err = unwrap_or(occupied_err, Player.OCCUPIED_ERR)
     
-    def choose_turn(self, field: FieldRepr) -> int:
+    def choose_turn(self, board: BoardRepr) -> int:
         while True:
             coord = input_turn(Player.PROMT, Player.INT_ERR, Player.BOUND_ERR)
-            if field[coord] is not Figure.EMPTY:
+            if board[coord] is not Figure.EMPTY:
                 print(self.occupied_err)
             else:
                 return coord
@@ -180,7 +181,7 @@ class Game:
         player_mark = Mark.X,
         player_is_first = True
     ):
-        self.field = Field()
+        self.board = Board()
         self.ai = ai
         self.player = Player()
         self.current = int(not player_is_first)
@@ -191,7 +192,7 @@ class Game:
             self.marks = [player_mark.opposite(), player_mark]
     
     def draw_board(self):
-        print(self.field)
+        print(self.board)
     
     def advance(self) -> bool:
         current = self.current
@@ -199,9 +200,9 @@ class Game:
         current_mark = self.marks[current]
         
         # FIXME: check if turn is correct
-        field = self.field.to_field_repr(current_mark)
-        coord = turner.choose_turn(field)
-        self.field[coord] = current_mark
+        board = self.board.to_board_repr(current_mark)
+        coord = turner.choose_turn(board)
+        self.board[coord] = current_mark
         
         if self.current != 0: #if it is not player's turn
             self.draw_board()
