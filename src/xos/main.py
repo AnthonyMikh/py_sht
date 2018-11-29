@@ -1,4 +1,5 @@
 import random
+import sys
 from enum import Enum, unique
 from abc import ABC, abstractmethod
 from typing import Union, Optional, TypeVar, List, Dict, Tuple
@@ -256,8 +257,8 @@ def unwrap_or_else(x, f):
         return f()
     return x
 
-class Player(Turner):
-    PROMT = "Enter number of cell to make turn: "
+class Human(Turner):
+    PROMT = "Your turn: "
     INT_ERR = "You input was not number"
     BOUND_ERR = "Your input was out of border of board"
     OCCUPIED_ERR = "This cell is already occupied"
@@ -267,14 +268,14 @@ class Player(Turner):
             int_err:      Optional[str] = None, 
             bound_err:    Optional[str] = None, 
             occupied_err: Optional[str] = None):
-        self.promt        = unwrap_or(promt,        Player.PROMT)
-        self.int_err      = unwrap_or(int_err,      Player.INT_ERR)
-        self.bound_err    = unwrap_or(bound_err,    Player.BOUND_ERR)
-        self.occupied_err = unwrap_or(occupied_err, Player.OCCUPIED_ERR)
+        self.promt        = unwrap_or(promt,        Human.PROMT)
+        self.int_err      = unwrap_or(int_err,      Human.INT_ERR)
+        self.bound_err    = unwrap_or(bound_err,    Human.BOUND_ERR)
+        self.occupied_err = unwrap_or(occupied_err, Human.OCCUPIED_ERR)
     
     def choose_turn(self, board: BoardRepr) -> int:
         while True:
-            coord = input_turn(Player.PROMT, Player.INT_ERR, Player.BOUND_ERR)
+            coord = input_turn(Human.PROMT, Human.INT_ERR, Human.BOUND_ERR)
             if board[coord] is not Figure.EMPTY:
                 print(self.occupied_err, end = "")
             else:
@@ -282,7 +283,7 @@ class Player(Turner):
 
 class Game:
     def __init__(self, *,
-        player0: Turner = Player(),
+        player0: Turner = Human(),
         player1: Turner = Crazy(),
         player0_mark: Mark = Mark.X,
         player0_is_first: bool = True
@@ -314,26 +315,102 @@ class Game:
         
         return (stuck, winner)
 
-if __name__ == "__main__":
-    game = Game()
+def ask_option(pre: Optional[str], promt: str, options: dict,
+               convert_case: bool = True):
+    if pre is not None:
+        print(pre, end="")
+
+    while True:
+        key = input(promt).strip()
+        if convert_case:
+            key = key.upper()
+
+        try:
+            return options[key]
+        except KeyError:
+            pass
+
+def ask_yes_no(pre: Optional[str], promt: str) -> bool:
+    options = {
+        'Y': True,
+        'N': False,
+    }
+    return ask_option(pre, promt, options)
+
+class GameOptions():
+    def __init__(self, *,
+        name: str, mark: Mark, is_first: bool):
+        self.name = name
+        self.mark = mark
+        self.is_first = is_first
+
+def play_round_with_human(*,
+        human_is_first: bool = True,
+        human_mark: Mark = Mark.X,
+    ) -> Optional[bool]:
+    game = Game(
+        player0_is_first = human_is_first,
+        player0_mark = human_mark,
+    )
     game.draw_board()
+    human = 0 if human_is_first else 1
+    ai = 1 - human
     
     while True:
-        redraw = game.current == 1
+        redraw = game.current == ai
         stuck, winner = game.advance(draw_board = redraw)
-        if winner == 0:
+        if winner == human:
             if not redraw:
                 game.draw_board()
             print("You won!")
-            break
-        if winner == 1:
+            return True
+        if winner == ai:
             if not redraw:
                 game.draw_board()            
             print("You lost")
-            break
+            return False
         if stuck:
             if not redraw:
                 game.draw_board()            
             game.draw_board()
             print("Draw")
-            break
+            return None
+
+if __name__ == "__main__":
+    wants_to_play = ask_yes_no(
+        "Welcome to tic-tac-toe",
+        "Do you want to play a game (y/n)?: "
+    )
+    if not wants_to_play:
+        sys.exit()
+    
+    name = input("Enter your name (skip to stay anonymous): ").strip()
+    if name == "":
+        name = "anonymous"
+    is_first = ask_yes_no(None, "Do you want to make first turn(y/n)?: ")
+    mark = ask_option(
+        None,
+        "Which figure do you want to play(X/O)?: ",
+        {'X': Mark.X, 'O': Mark.O})
+    
+    game_options = GameOptions(name = name, mark = mark, is_first = is_first)
+    score = [0, 0]
+    continue_play = True
+    opponent_name = "computer"
+    
+    while continue_play:
+        won = play_round_with_human(
+            human_is_first = game_options.is_first,
+            human_mark = game_options.mark,
+        )
+        if won is not None:
+            if won: score[0] += 1
+            else: score[1] += 1
+        
+        align = max(len(game_options.name), len(opponent_name))
+        print("Current score:")
+        print("{:<{align}} {}".format(game_options.name, score[0], align = align))
+        print("{:<{align}} {}".format(opponent_name, score[1], align = align))
+        continue_play = ask_yes_no(None, "One more game(y/n)?: ")
+    
+    print("Good bye,", game_options.name)
