@@ -1,9 +1,13 @@
 import random
 from enum import Enum, unique
 from abc import ABC, abstractmethod
-from typing import Union, Optional, TypeVar
+from typing import Union, Optional, TypeVar, List, Tuple
+from itertools import islice
 
 T = TypeVar('T')
+Segment = List[Tuple[int, T]]
+MarkSegment = Segment['Mark']
+FigSegment = Segment['Figure']
 
 @unique
 class Mark(Enum):
@@ -56,13 +60,47 @@ def occupied_or(fig: Mark, alt: T) -> Union[Figure, T]:
         return alt
     return fig
 
-numpad = [
-    7, 8, 9,
-    4, 5, 6,
-    1, 2, 3,
-]
+def slice_indexed(l: List[T], s: slice) -> Segment[T]:
+    return list(islice(enumerate(l), *s.indices(len(l))))
+
+def slice_row(l: List[T], index: int, err_msg: str) -> Segment[T]:
+    if index in [0, 1, 2]: return slice_indexed(l, slice(0, 3))    
+    if index in [3, 4, 5]: return slice_indexed(l, slice(3, 6))    
+    if index in [6, 7, 8]: return slice_indexed(l, slice(6, 9))
+    
+    raise IndexError(err_msg)
+
+def slice_col(l: List[T], index: int, err_msg: str) -> Segment[T]:
+    if index in [0, 3, 6]: return slice_indexed(l, slice(0, None, 3))
+    if index in [1, 4, 7]: return slice_indexed(l, slice(1, None, 3))
+    if index in [2, 5, 8]: return slice_indexed(l, slice(3, None, 3))
+    
+    raise IndexError(err_msg)
+
+def slice_diags(l: List[T], index: int, err_msg: str) -> List[Segment[T]]:
+    if index < 0 or index > 8:
+        raise IndexError(err_msg)
+
+    segments = []
+    
+    if index in [0, 4, 8]:
+        segments.append(slice_indexed(l, slice(0, None, 4)))
+    if index in [2, 4, 6]:
+        segments.append(slice_indexed(l, slice(2, None, 2)))
+    
+    return segments
+
+
 
 class Board():
+    IDX_ERR = "Board is indexable by integers in range [0, 8] only"
+    
+    numpad = [
+        7, 8, 9,
+        4, 5, 6,
+        1, 2, 3,
+    ]
+    
     def __init__(self):
         self.board = [Mark.EMPTY] * 9
     
@@ -73,6 +111,11 @@ class Board():
         board_.board = board
         return board_
     
+    @classmethod
+    def check(cls, index: int):
+        if index < 0 or index > 8:
+            raise IndexError(cls.IDX_ERR)
+    
     def to_board_repr(self, own: 'Mark') -> 'BoardRepr':
         board = [Figure.from_mark(m, own) for m in self.board]
         return BoardRepr.from_raw_board(board)
@@ -80,7 +123,7 @@ class Board():
     def __str__(self):
         indexed = list(map(
             lambda fig_i: str(occupied_or(fig_i[0], fig_i[1])),
-            zip(self.board, numpad)))
+            zip(self.board, Board.numpad)))
         
         return "\n-----\n".join([
             "|".join(indexed[0:3]),
@@ -89,13 +132,25 @@ class Board():
         ])
     
     def __getitem__(self, index: int) -> Mark:
+        Board.check(index)
         return self.board[index]
     
     def __setitem__(self, index: int, mark: Mark):
+        Board.check(index)
         self.board[index] = mark
-            
+    
+    def row(self, index: int) -> MarkSegment:
+        return slice_row(self.board, index, Board.IDX_ERR)
+    
+    def col(self, index: int) -> MarkSegment:
+        return slice_col(self.board, index, Board.IDX_ERR)
+    
+    def diags(self, index: int) -> List[MarkSegment]:
+        return slice_diags(self.board, index, Board.IDX_ERR)
 
 class BoardRepr():
+    IDX_ERR = "BoardRepr is indexable by integers in range [0, 8] only"
+    
     def __init__(self):
         self.board = [Figure.EMPTY] * 9
     
@@ -106,11 +161,27 @@ class BoardRepr():
         board_repr.board = board
         return board_repr
     
+    @classmethod
+    def check(cls, index: int):
+        if index < 0 or index > 8:
+            raise IndexError(cls.IDX_ERR)
+    
     def __getitem__(self, index: int) -> Figure:
+        BoardRepr.check(index)
         return self.board[index]
     
     def __setitem__(self, index: int, fig: Figure):
-        self.board[index] = fig
+        BoardRepr.check(index)
+        return self.board[index]
+    
+    def row(self, index: int) -> MarkSegment:
+        return slice_row(self.board, index, Board.IDX_ERR)
+
+    def col(self, index: int) -> MarkSegment:
+        return slice_col(self.board, index, Board.IDX_ERR)    
+
+    def diags(self, index: int) -> List[MarkSegment]:
+        return slice_diags(self.board, index, Board.IDX_ERR)
 
 class Turner(ABC):
     @abstractmethod
