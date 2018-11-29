@@ -1,10 +1,9 @@
 import random
 from enum import Enum, unique
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Optional, TypeVar
+from typing import Union, Optional, TypeVar
 
 T = TypeVar('T')
-Coord = Union[Tuple[int, int], int]
 
 @unique
 class Mark(Enum):
@@ -65,8 +64,6 @@ numpad = [
 ]
 
 class Field():
-    idx_err = "Field is indexable by single and a pair of integers only"
-    
     def __init__(self):
         self.field = [Mark.EMPTY] * 9
     
@@ -91,33 +88,14 @@ class Field():
             "|".join(indexed[6:9]),
         ])
     
-    def __getitem__(self, index: Coord) -> Mark:
-        if isinstance(index, int):
-            return self.field[index]
-        
-        if isinstance(index, tuple):
-            if len(index) != 2:
-                raise IndexError(Field.idx_err)
-            row, col = index
-            return self.field[row * 3 + col]
-
-        raise IndexError(Field.idx_err)
+    def __getitem__(self, index: int) -> Mark:
+        return self.field[index]
     
-    def __setitem__(self, index: Coord, mark: Mark):
-        if isinstance(index, int):
-            self.field[index] = mark
-        elif isinstance(index, tuple):
-            if len(index) != 2:
-                raise IndexError(Field.idx_err)
-            row, col = index
-            self.field[row * 3 + col] = mark
-        else:
-            raise IndexError(Field.idx_err)        
+    def __setitem__(self, index: int, mark: Mark):
+        self.field[index] = mark
             
 
 class FieldRepr():
-    idx_err = "FieldRepr is indexable by single and a pair of integers only"
-    
     def __init__(self):
         self.field = [Figure.EMPTY] * 9
     
@@ -127,35 +105,19 @@ class FieldRepr():
         field_repr.field = field
         return field_repr
     
-    def __getitem__(self, index: Coord) -> Figure:
-        if isinstance(index, int):
-            return self.field[index]
-        elif isinstance(index, tuple):
-            if len(index) != 2:
-                raise IndexError(Field.idx_err)
-            row, col = index
-            return self.field[row * 3 + col]
-        else:
-            raise IndexError(Field.idx_err)
+    def __getitem__(self, index: int) -> Figure:
+        return self.field[index]
     
-    def __setitem__(self, index: Coord, fig: Figure):
-        if isinstance(index, int):
-            self.field[index] = fig
-        elif isinstance(index, tuple):
-            if len(index) != 2:
-                raise IndexError(Field.idx_err)
-            row, col = index
-            self.field[row * 3 + col] = fig
-        else:
-            raise IndexError(Field.idx_err)
+    def __setitem__(self, index: int, fig: Figure):
+        self.field[index] = fig
 
 class Turner(ABC):
     @abstractmethod
-    def choose_turn(self, field: FieldRepr) -> Coord:
+    def choose_turn(self, field: FieldRepr) -> int:
         pass
 
 class Crazy(Turner):
-    def choose_turn(self, field: FieldRepr) -> Coord:
+    def choose_turn(self, field: FieldRepr) -> int:
         return random.choice([i for (i, fig) in enumerate(field) if fig is Figure.EMPTY])
 
 numpad_to_coord = {
@@ -204,7 +166,7 @@ class Player(Turner):
         self.bound_err    = unwrap_or(bound_err,    Player.BOUND_ERR)
         self.occupied_err = unwrap_or(occupied_err, Player.OCCUPIED_ERR)
     
-    def choose_turn(self, field: FieldRepr) -> Coord:
+    def choose_turn(self, field: FieldRepr) -> int:
         while True:
             coord = input_turn(Player.PROMT, Player.INT_ERR, Player.BOUND_ERR)
             if field[coord] is not Figure.EMPTY:
@@ -214,12 +176,12 @@ class Player(Turner):
 
 class Game:
     def __init__(self, *,
-        ai = Crazy,
+        ai = Crazy(),
         player_mark = Mark.X,
         player_is_first = True
     ):
         self.field = Field()
-        self.ai = ai()
+        self.ai = ai
         self.player = Player()
         self.current = int(not player_is_first)
         
