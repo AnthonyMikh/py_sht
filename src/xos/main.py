@@ -177,34 +177,29 @@ class Player(Turner):
 
 class Game:
     def __init__(self, *,
-        ai = Crazy(),
-        player_mark = Mark.X,
-        player_is_first = True
+        player0: Turner = Player(),
+        player1: Turner = Crazy(),
+        player0_mark: Mark = Mark.X,
+        player0_is_first: bool = True
     ):
         self.board = Board()
-        self.ai = ai
-        self.player = Player()
-        self.current = int(not player_is_first)
-        
-        if self.current == 0: #if player's turn is first
-            self.marks = [player_mark, player_mark.opposite()]
-        else:
-            self.marks = [player_mark.opposite(), player_mark]
+        self.players = [(player0, player0_mark),
+                        (player1, player0_mark.opposite())]
+        self.current = 0 if player0_is_first else 1
     
     def draw_board(self):
         print(self.board)
     
-    def advance(self) -> bool:
+    def advance(self, draw_board: bool) -> bool:
         current = self.current
-        turner = [self.player, self.ai][current]
-        current_mark = self.marks[current]
+        turner, current_mark = self.players[current]
         
         # FIXME: check if turn is correct
         board = self.board.to_board_repr(current_mark)
         coord = turner.choose_turn(board)
         self.board[coord] = current_mark
         
-        if self.current != 0: #if it is not player's turn
+        if draw_board:
             self.draw_board()
 
         self.current = 1 - current
@@ -218,4 +213,4 @@ if __name__ == "__main__":
     
     # FIXME: handle gracefully end of game
     while True:
-        game.advance()
+        game.advance(game.current == 1)
