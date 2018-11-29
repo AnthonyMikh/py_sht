@@ -1,13 +1,11 @@
 import random
 from enum import Enum, unique
 from abc import ABC, abstractmethod
-from typing import Union, Optional, TypeVar, List, Dict
+from typing import Union, Optional, TypeVar, List, Dict, Tuple
 from itertools import islice
 
 T = TypeVar('T')
 Line = Dict[int, T]
-MarkLine = Line['Mark']
-FigLine = Line['Figure']
 
 @unique
 class Mark(Enum):
@@ -40,6 +38,9 @@ class Mark(Enum):
         else:
             return 'O'
 
+PutResult = Tuple[bool, Optional[Mark]]
+MarkLine = Line[Mark]
+
 @unique
 class Figure(Enum):
     EMPTY = 0
@@ -54,6 +55,8 @@ class Figure(Enum):
             return Figure.OWN
         else:
             return Figure.ENEMY
+
+FigLine = Line[Figure]
 
 def occupied_or(fig: Mark, alt: T) -> Union[Figure, T]:
     if fig is Mark.EMPTY:
@@ -104,6 +107,7 @@ class Board():
     
     def __init__(self):
         self.board = [Mark.EMPTY] * 9
+        self.count = 0
     
     @classmethod
     def from_raw_board(cls, board: list) -> 'Board':
@@ -148,9 +152,24 @@ class Board():
     
     def diags(self, index: int) -> List[MarkLine]:
         return slice_diags(self.board, index, Board.IDX_ERR)
+    
+    def dirs(self, index: int) -> List[MarkLine]:
+        return [self.row(index), self.col(index), *self.diags(index)]
+    
+    def put_mark(self, index: int, mark: Mark) -> PutResult:
+        if self[index] is Mark.EMPTY:
+            self.count += 1
+        
+        self[index] = mark
+        stuck = self.count == 9
+        winner = None
+        if any(is_filled_with(line, mark) for line in self.dirs(index)):
+            winner = Mark
+        
+        return (stuck, winner)
 
-def is_completing_line(seg: Line[T], idx: int, elem: T, empty: T) -> bool:
-    line = dict(seg)
+
+def is_completing_line(line: Line[T], idx: int, elem: T, empty: T) -> bool:
     return all(x is elem for (i, x) in line.items() if i != idx) and\
         line[idx] is empty
 
@@ -194,6 +213,9 @@ class BoardRepr():
 
     def diags(self, index: int) -> List[MarkLine]:
         return slice_diags(self.board, index, Board.IDX_ERR)
+    
+    def dirs(self, index: int) -> List[FigLine]:
+        return [self.row(index), self.col(index), *self.diags(index)]
 
 class Turner(ABC):
     @abstractmethod
@@ -275,27 +297,43 @@ class Game:
         print(self.board, end = "")
         print()
     
-    def advance(self, draw_board: bool) -> bool:
+    def advance(self, draw_board: bool) -> Tuple[bool, Optional[int]]:
         current = self.current
         turner, current_mark = self.players[current]
         
         # FIXME: check if turn is correct
         board = self.board.to_board_repr(current_mark)
         coord = turner.choose_turn(board)
-        self.board[coord] = current_mark
+        stuck, completed = self.board.put_mark(coord, current_mark)
         
         if draw_board:
             self.draw_board()
-
+        
+        winner = current if completed is not None else None
         self.current = 1 - current
         
-        # FIXME: check if turn ends the game
-        return False
-    
+        return (stuck, winner)
+
 if __name__ == "__main__":
     game = Game()
     game.draw_board()
     
-    # FIXME: handle gracefully end of game
     while True:
-        game.advance(game.current == 1)
+        redraw = game.current == 1
+        stuck, winner = game.advance(draw_board = redraw)
+        if winner == 0:
+            if not redraw:
+                game.draw_board()
+            print("You won!")
+            break
+        if winner == 1:
+            if not redraw:
+                game.draw_board()            
+            print("You lost")
+            break
+        if stuck:
+            if not redraw:
+                game.draw_board()            
+            game.draw_board()
+            print("Draw")
+            break
